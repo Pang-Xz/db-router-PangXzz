@@ -5,7 +5,7 @@ import cm.PangXzz.db.router.DBRouterJoinPoint;
 import cm.PangXzz.db.router.dynamic.DynamicDataSource;
 import cm.PangXzz.db.router.dynamic.DynamicMybatisPlugin;
 import cm.PangXzz.db.router.strategy.IDBRouterStrategy;
-import cm.PangXzz.db.router.strategy.impl.DBRouterStrategy;
+import cm.PangXzz.db.router.strategy.impl.DBRouterStrategyHashCode;
 import cm.PangXzz.db.router.util.PropertyUtil;
 import org.apache.ibatis.plugin.Interceptor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -29,6 +29,7 @@ import java.util.Map;
  */
 @Configuration
 public class DataSourceAutoConfig implements EnvironmentAware {
+
     /**
      * 数据源配置组
      */
@@ -53,6 +54,56 @@ public class DataSourceAutoConfig implements EnvironmentAware {
      * 路由字段
      */
     private String routerKey;
+
+    @Bean(name = "db-router-point")
+    @ConditionalOnMissingBean
+    public DBRouterJoinPoint point(DBRouterConfig dbRouterConfig, IDBRouterStrategy dbRouterStrategy) {
+        return new DBRouterJoinPoint(dbRouterConfig, dbRouterStrategy);
+    }
+
+    @Bean
+    public DBRouterConfig dbRouterConfig() {
+        return new DBRouterConfig(dbCount, tbCount, routerKey);
+    }
+
+    @Bean
+    public Interceptor plugin() {
+        return new DynamicMybatisPlugin();
+    }
+
+    @Bean
+    public DataSource dataSource() {
+        // 创建数据源
+        Map<Object, Object> targetDataSources = new HashMap<>();
+        for (String dbInfo : dataSourceMap.keySet()) {
+            Map<String, Object> objMap = dataSourceMap.get(dbInfo);
+            targetDataSources.put(dbInfo, new DriverManagerDataSource(objMap.get("url").toString(), objMap.get("username").toString(), objMap.get("password").toString()));
+        }
+
+        // 设置数据源
+        DynamicDataSource dynamicDataSource = new DynamicDataSource();
+        dynamicDataSource.setTargetDataSources(targetDataSources);
+        dynamicDataSource.setDefaultTargetDataSource(new DriverManagerDataSource(defaultDataSourceConfig.get("url").toString(), defaultDataSourceConfig.get("username").toString(), defaultDataSourceConfig.get("password").toString()));
+
+        return dynamicDataSource;
+    }
+
+    @Bean
+    public IDBRouterStrategy dbRouterStrategy(DBRouterConfig dbRouterConfig) {
+        return new DBRouterStrategyHashCode(dbRouterConfig);
+    }
+
+    @Bean
+    public TransactionTemplate transactionTemplate(DataSource dataSource) {
+        DataSourceTransactionManager dataSourceTransactionManager = new DataSourceTransactionManager();
+        dataSourceTransactionManager.setDataSource(dataSource);
+
+        TransactionTemplate transactionTemplate = new TransactionTemplate();
+        transactionTemplate.setTransactionManager(dataSourceTransactionManager);
+        transactionTemplate.setPropagationBehaviorName("PROPAGATION_REQUIRED");
+        return transactionTemplate;
+    }
+
     @Override
     public void setEnvironment(Environment environment) {
         String prefix = "mini-db-router.jdbc.datasource.";
@@ -74,50 +125,5 @@ public class DataSourceAutoConfig implements EnvironmentAware {
         defaultDataSourceConfig = PropertyUtil.handle(environment, prefix + defaultData, Map.class);
 
     }
-    @Bean(name = "db-router-point")
-    @ConditionalOnMissingBean
-    public DBRouterJoinPoint point(DBRouterConfig dbRouterConfig, IDBRouterStrategy dbRouterStrategy) {
-        return new DBRouterJoinPoint(dbRouterConfig, dbRouterStrategy);
-    }
-    @Bean
-    public DBRouterConfig dbRouterConfig() {
-        return new DBRouterConfig(dbCount, tbCount, routerKey);
-    }
-    @Bean
-    public IDBRouterStrategy dbRouterStrategy(DBRouterConfig dbRouterConfig) {
-        return new DBRouterStrategy(dbRouterConfig);
-    }
-    @Bean
-    public DataSource dataSource() {
-        // 创建数据源
-        Map<Object, Object> targetDataSources = new HashMap<>();
-        for (String dbInfo : dataSourceMap.keySet()) {
-            Map<String, Object> objMap = dataSourceMap.get(dbInfo);
-            targetDataSources.put(dbInfo, new DriverManagerDataSource(objMap.get("url").toString(), objMap.get("username").toString(), objMap.get("password").toString()));
-        }
 
-        // 设置数据源
-        DynamicDataSource dynamicDataSource = new DynamicDataSource();
-        dynamicDataSource.setTargetDataSources(targetDataSources);
-        dynamicDataSource.setDefaultTargetDataSource(new DriverManagerDataSource(defaultDataSourceConfig.get("url").toString(), defaultDataSourceConfig.get("username").toString(), defaultDataSourceConfig.get("password").toString()));
-
-        return dynamicDataSource;
-    }
-    @Bean
-    public Interceptor plugin() {
-        return new DynamicMybatisPlugin();
-    }
-    @Bean
-    public TransactionTemplate transactionTemplate(DataSource dataSource) {
-        DataSourceTransactionManager dataSourceTransactionManager = new DataSourceTransactionManager();
-        dataSourceTransactionManager.setDataSource(dataSource);
-
-        TransactionTemplate transactionTemplate = new TransactionTemplate();
-        transactionTemplate.setTransactionManager(dataSourceTransactionManager);
-        transactionTemplate.setPropagationBehaviorName("PROPAGATION_REQUIRED");
-        return transactionTemplate;
-    }
-    }
-
-
-
+}

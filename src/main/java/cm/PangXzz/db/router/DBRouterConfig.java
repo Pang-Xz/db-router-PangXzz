@@ -1,7 +1,4 @@
 package cm.PangXzz.db.router;
-
-import org.springframework.context.annotation.Configuration;
-
 /**
  * @Author：PangXz
  * @Package：cm.PangXzz.du.router
@@ -23,6 +20,8 @@ public class DBRouterConfig {
      * 路由字段
      */
     private String routerKey;
+    public DBRouterConfig() {
+    }
 
     public DBRouterConfig(int dbCount, int tbCount, String routerKey) {
         this.dbCount = dbCount;

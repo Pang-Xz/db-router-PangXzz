@@ -7,6 +7,7 @@ import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.Signature;
 import org.aspectj.lang.annotation.Around;
+import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.annotation.Pointcut;
 import org.aspectj.lang.reflect.MethodSignature;
 import org.slf4j.Logger;
@@ -21,6 +22,7 @@ import java.lang.reflect.Method;
  * @name：DBRouterJoinPoint
  * @Date：2023-08-05 14:25
  */
+@Aspect
 public class DBRouterJoinPoint {
     private Logger logger = LoggerFactory.getLogger(DBRouterJoinPoint.class);
 
@@ -29,7 +31,6 @@ public class DBRouterJoinPoint {
     private IDBRouterStrategy dbRouterStrategy;
 
     public DBRouterJoinPoint(DBRouterConfig dbRouterConfig, IDBRouterStrategy dbRouterStrategy) {
-
         this.dbRouterConfig = dbRouterConfig;
         this.dbRouterStrategy = dbRouterStrategy;
     }
@@ -39,20 +40,21 @@ public class DBRouterJoinPoint {
     @Pointcut("@annotation(cm.PangXzz.db.router.annotation.DBRouter)")
     public void aopPoint(){}
 
-    @Around("aopPoint() && @annotation(DBRouter)")
-    public Object dbRouter(ProceedingJoinPoint jp, DBRouter dbRouter) throws Throwable {
+    @Around("aopPoint() && @annotation(dbRouter)")
+    public Object doRouter(ProceedingJoinPoint jp, DBRouter dbRouter) throws Throwable {
         String dbKey = dbRouter.key();
-        //dbkey=>dbRouter.key() 确定根据哪个字段进行路由
         if (StringUtils.isBlank(dbKey) && StringUtils.isBlank(dbRouterConfig.getRouterKey())) {
             throw new RuntimeException("annotation DBRouter key is null！");
         }
         dbKey = StringUtils.isNotBlank(dbKey) ? dbKey : dbRouterConfig.getRouterKey();
-        //也可以通过配置其他，比如默认是uid，传进来了[{"ZKB","123","18"}]
+        // 路由属性
         String dbKeyAttr = getAttrValue(dbKey, jp.getArgs());
+        // 路由策略
         dbRouterStrategy.doRouter(dbKeyAttr);
-        try{
+        // 返回结果
+        try {
             return jp.proceed();
-        }finally {
+        } finally {
             dbRouterStrategy.clear();
         }
     }
@@ -116,6 +118,7 @@ public class DBRouterJoinPoint {
             return null;
         }
     }
+
     /**
      * 根据名称获取方法，该方法同时兼顾继承类获取父类的属性
      *
@@ -137,4 +140,5 @@ public class DBRouterJoinPoint {
             return null;
         }
     }
+
 }

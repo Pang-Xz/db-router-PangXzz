@@ -7,6 +7,7 @@ package cm.PangXzz.db.router;
  * @name：DBRouterBase
  * @Date：2023-08-05 14:19
  */
+
 public class DBRouterBase {
 
     private String tbIdx;
